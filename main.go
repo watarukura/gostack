@@ -12,11 +12,6 @@ type Stack []int
 
 func main() {
 	stack := Stack{}
-	//stack.push(42)
-	//stack.push(36)
-	//
-	//stack.add()
-	//fmt.Println("stack: ", stack)
 
 	sc := bufio.NewScanner(os.Stdin)
 	sc.Scan()
