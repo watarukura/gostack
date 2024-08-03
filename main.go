@@ -11,7 +11,7 @@ import (
 type Stack []Value
 
 type Num int
-type Op rune
+type Op string
 type Block []Value
 type Value interface{}
 
@@ -20,10 +20,11 @@ func main() {
 
 	sc := bufio.NewScanner(os.Stdin)
 	sc.Scan()
-	parse(sc.Text())
+	parsed := Parse(sc.Text())
+	fmt.Printf("%#v\n", parsed)
 }
 
-func parse(line string) []Value {
+func Parse(line string) []Value {
 	stack := Stack{}
 	input := strings.Split(line, " ")
 	words := &input
@@ -35,7 +36,7 @@ func parse(line string) []Value {
 			break
 		}
 		if word == "{" {
-			value, rest := parseBlock(words)
+			value, rest := ParseBlock(words)
 			stack.push(value)
 			words = rest
 		} else {
@@ -59,13 +60,11 @@ func parse(line string) []Value {
 		}
 	}
 
-	fmt.Println(stack)
-
 	return stack
 }
 
-func parseBlock(words *[]string) (Value, *[]string) {
-	var tokens []Value
+func ParseBlock(words *[]string) (Value, *[]string) {
+	stack := Stack{}
 
 	for len(*words) > 0 {
 		word := splitFirst(words)
@@ -74,22 +73,22 @@ func parseBlock(words *[]string) (Value, *[]string) {
 			break
 		}
 		if word == "{" {
-			value, rest := parseBlock(words)
-			tokens = append(tokens, value)
+			value, rest := ParseBlock(words)
+			stack.push(value)
 			words = rest
 		} else if word == "}" {
-			return Block(tokens), words
+			return Block(stack), words
 		} else {
 			value, err := strconv.Atoi(word)
 			if err == nil {
-				tokens = append(tokens, Num(value))
+				stack.push(Num(value))
 			} else {
-				tokens = append(tokens, Op(word[0]))
+				stack.push(Op(word))
 			}
 		}
 	}
 
-	return Block(tokens), words
+	return Block(stack), words
 }
 
 func splitFirst(words *[]string) string {

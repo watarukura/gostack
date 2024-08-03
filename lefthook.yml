@@ -15,8 +15,11 @@
 pre-commit:
   parallel: true
   commands:
-    go:
+    lint:
       glob: "*.go"
       run: golangci-lint run
+    test:
+      glob: "*.go"
+      run: go test ./...
     typos:
       run: typos .
