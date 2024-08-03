@@ -8,65 +8,123 @@ import (
 	"strings"
 )
 
-type Stack []int
+type Stack []Value
+
+type Num int
+type Op string
+type Block []Value
+type Value interface{}
 
 func main() {
-	stack := Stack{}
+	//stack := Stack{}
 
 	sc := bufio.NewScanner(os.Stdin)
 	sc.Scan()
-	inputs := strings.Split(sc.Text(), " ")
+	parsed := Parse(sc.Text())
+	fmt.Printf("%#v\n", parsed)
+}
 
-	for _, input := range inputs {
-		v, ng := strconv.Atoi(input)
-		if ng != nil {
-			switch input {
-			case "+":
-				stack.add()
-			case "-":
-				stack.sub()
-			case "*":
-				stack.mul()
-			case "/":
-				stack.div()
-			default:
-				panic("Invalid input: " + input)
-			}
+func Parse(line string) []Value {
+	stack := Stack{}
+	input := strings.Split(line, " ")
+	words := &input
+
+	for len(*words) > 0 {
+		word := splitFirst(words)
+
+		if word == "" {
+			break
+		}
+		if word == "{" {
+			value, rest := ParseBlock(words)
+			stack.push(value)
+			words = rest
 		} else {
-			stack.push(v)
+			parsed, err := strconv.Atoi(word)
+			if err == nil {
+				stack.push(Num(parsed))
+			} else {
+				switch word {
+				case "+":
+					stack.add()
+				case "-":
+					stack.sub()
+				case "*":
+					stack.mul()
+				case "/":
+					stack.div()
+				default:
+					return nil
+				}
+			}
 		}
 	}
-	fmt.Println("stack: ", stack)
+
+	return stack
+}
+
+func ParseBlock(words *[]string) (Value, *[]string) {
+	stack := Stack{}
+
+	for len(*words) > 0 {
+		word := splitFirst(words)
+
+		if word == "" {
+			break
+		}
+		if word == "{" {
+			value, rest := ParseBlock(words)
+			stack.push(value)
+			words = rest
+		} else if word == "}" {
+			return Block(stack), words
+		} else {
+			value, err := strconv.Atoi(word)
+			if err == nil {
+				stack.push(Num(value))
+			} else {
+				stack.push(Op(word))
+			}
+		}
+	}
+
+	return Block(stack), words
+}
+
+func splitFirst(words *[]string) string {
+	word := (*words)[0]
+	*words = (*words)[1:]
+	return word
 }
 
 func (s *Stack) add() {
-	lhs := s.pop()
-	rhs := s.pop()
+	rhs := s.pop().(Num)
+	lhs := s.pop().(Num)
 	s.push(lhs + rhs)
 }
 func (s *Stack) sub() {
-	lhs := s.pop()
-	rhs := s.pop()
+	rhs := s.pop().(Num)
+	lhs := s.pop().(Num)
 	s.push(lhs - rhs)
 }
 func (s *Stack) mul() {
-	lhs := s.pop()
-	rhs := s.pop()
+	rhs := s.pop().(Num)
+	lhs := s.pop().(Num)
 	s.push(lhs * rhs)
 }
 func (s *Stack) div() {
-	lhs := s.pop()
-	rhs := s.pop()
+	rhs := s.pop().(Num)
+	lhs := s.pop().(Num)
 	s.push(lhs / rhs)
 }
 
-func (s *Stack) pop() int {
+func (s *Stack) pop() Value {
 	tmp := *s
 	last := tmp[len(tmp)-1]
 	*s = tmp[:len(tmp)-1]
 	return last
 }
 
-func (s *Stack) push(value int) {
+func (s *Stack) push(value Value) {
 	*s = append(*s, value)
 }
