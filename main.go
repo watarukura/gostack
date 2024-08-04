@@ -46,7 +46,6 @@ func Parse(line string) []Value {
 			}
 		}
 		code := stack.pop()
-		fmt.Printf("%#v\n", code)
 		stack.eval(code)
 	}
 

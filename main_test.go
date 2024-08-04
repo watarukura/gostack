@@ -26,11 +26,6 @@ func TestParse(t *testing.T) {
 			arg:  "",
 			want: []Value{},
 		},
-		//{
-		//	name: "invalid input",
-		//	arg:  "invalid",
-		//	want: nil,
-		//},
 		{
 			name: "nested block",
 			arg:  "{ 2 { 3 4 + } * }",
