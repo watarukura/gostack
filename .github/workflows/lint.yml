@@ -3,10 +3,6 @@ name: Run lint/test
 
 on:
   pull_request:
-    paths:
-      - "**.go"
-    branches:
-      - master
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
