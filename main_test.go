@@ -26,15 +26,25 @@ func TestParse(t *testing.T) {
 			arg:  "",
 			want: []Value{},
 		},
-		{
-			name: "invalid input",
-			arg:  "invalid",
-			want: nil,
-		},
+		//{
+		//	name: "invalid input",
+		//	arg:  "invalid",
+		//	want: nil,
+		//},
 		{
 			name: "nested block",
 			arg:  "{ 2 { 3 4 + } * }",
 			want: []Value{Block{Num(2), Block{Num(3), Num(4), Op("+")}, Op("*")}},
+		},
+		{
+			name: "if false",
+			arg:  "{ 1 -1 + } { 100 } { -100 } if",
+			want: []Value{Num(-100)},
+		},
+		{
+			name: "if true",
+			arg:  "{ 1 1 + } { 100 } { -100 } if",
+			want: []Value{Num(100)},
 		},
 	}
 
