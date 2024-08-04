@@ -1,6 +1,22 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
+    "github>aquaproj/aqua-renovate-config#2.3.1",
+    "config:best-practices"
+  ],
+  "packageRules": [
+    {
+      "groupName": "aqua devDependencies",
+      "matchFileNames": [
+        "aqua.ya?ml"
+      ],
+      "automerge": true
+    },
+    {
+      "matchPackagePatterns": [
+        "aquaproj/*",
+        "actions/*"
+      ],
+      "automerge": true
+    }
   ]
 }
