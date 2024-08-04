@@ -16,8 +16,6 @@ type Block []Value
 type Value interface{}
 
 func main() {
-	//stack := Stack{}
-
 	sc := bufio.NewScanner(os.Stdin)
 	sc.Scan()
 	parsed := Parse(sc.Text())
@@ -44,20 +42,11 @@ func Parse(line string) []Value {
 			if err == nil {
 				stack.push(Num(parsed))
 			} else {
-				switch word {
-				case "+":
-					stack.add()
-				case "-":
-					stack.sub()
-				case "*":
-					stack.mul()
-				case "/":
-					stack.div()
-				default:
-					return nil
-				}
+				stack.push(Op(word))
 			}
 		}
+		code := stack.pop()
+		stack.eval(code)
 	}
 
 	return stack
@@ -116,6 +105,49 @@ func (s *Stack) div() {
 	rhs := s.pop().(Num)
 	lhs := s.pop().(Num)
 	s.push(lhs / rhs)
+}
+func (s *Stack) opIf() {
+	falseBranch := s.pop().(Block)
+	trueBranch := s.pop().(Block)
+	cond := s.pop().(Block)
+
+	for _, code := range cond {
+		s.eval(code)
+	}
+
+	condResult := s.pop().(Num)
+
+	if condResult != 0 {
+		for _, code := range trueBranch {
+			s.eval(code)
+		}
+	} else {
+		for _, code := range falseBranch {
+			s.eval(code)
+		}
+	}
+}
+func (s *Stack) eval(code Value) {
+	if word, ok := code.(Op); ok {
+		switch word {
+		case "+":
+			s.add()
+		case "-":
+			s.sub()
+		case "*":
+			s.mul()
+		case "/":
+			s.div()
+		case "if":
+			s.opIf()
+		default:
+			panic(fmt.Sprintf("word: %v", word))
+		}
+	} else if num, ok := code.(Num); ok {
+		s.push(num)
+	} else {
+		s.push(code.(Block))
+	}
 }
 
 func (s *Stack) pop() Value {
