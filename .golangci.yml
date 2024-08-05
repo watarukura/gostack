@@ -8,3 +8,4 @@ linters:
   enable:
     - gofmt
     - govet
+    - goimports

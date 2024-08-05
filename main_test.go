@@ -41,6 +41,16 @@ func TestParse(t *testing.T) {
 			arg:  "{ 1 1 + } { 100 } { -100 } if",
 			want: []Value{Num(100)},
 		},
+		{
+			name: "var",
+			arg:  "/x 10 def /y 20 def x y *",
+			want: []Value{Num(200)},
+		},
+		{
+			name: "var if",
+			arg:  "/x 10 def /y 20 def { x y < } { x } { y } if",
+			want: []Value{Num(10)},
+		},
 	}
 
 	for _, test := range tests {

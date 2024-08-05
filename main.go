@@ -13,7 +13,21 @@ type Stack []Value
 type Num int
 type Op string
 type Block []Value
-type Value interface{}
+type Sym string
+type Value Valuer
+type Valuer interface {
+	getValue() interface{}
+}
+
+func (n Num) getValue() interface{}   { return int(n) }
+func (o Op) getValue() interface{}    { return string(o) }
+func (s Sym) getValue() interface{}   { return string(s) }
+func (b Block) getValue() interface{} { return []Value(b) }
+
+type Vm struct {
+	stack Stack
+	vars  map[string]interface{}
+}
 
 func main() {
 	sc := bufio.NewScanner(os.Stdin)
@@ -23,7 +37,7 @@ func main() {
 }
 
 func Parse(line string) []Value {
-	stack := Stack{}
+	vm := Vm{Stack{}, make(map[string]interface{})}
 	input := strings.Split(line, " ")
 	words := &input
 
@@ -35,21 +49,23 @@ func Parse(line string) []Value {
 		}
 		if word == "{" {
 			value, rest := ParseBlock(words)
-			stack.push(value)
+			vm.stack.push(value)
 			words = rest
 		} else {
 			parsed, err := strconv.Atoi(word)
 			if err == nil {
-				stack.push(Num(parsed))
+				vm.stack.push(Num(parsed))
+			} else if strings.HasPrefix(word, "/") {
+				vm.stack.push(Sym(word[1:]))
 			} else {
-				stack.push(Op(word))
+				vm.stack.push(Op(word))
 			}
 		}
-		code := stack.pop()
-		stack.eval(code)
+		code := vm.stack.pop()
+		vm.stack.eval(code, &vm)
 	}
 
-	return stack
+	return vm.stack
 }
 
 func ParseBlock(words *[]string) (Value, *[]string) {
@@ -106,47 +122,72 @@ func (s *Stack) div() {
 	lhs := s.pop().(Num)
 	s.push(lhs / rhs)
 }
-func (s *Stack) opIf() {
+func (s *Stack) lt() {
+	rhs := s.pop().(Num)
+	lhs := s.pop().(Num)
+	if lhs < rhs {
+		s.push(Num(1))
+	} else {
+		s.push(Num(0))
+	}
+}
+func (s *Stack) opIf(vm *Vm) {
 	falseBranch := s.pop().(Block)
 	trueBranch := s.pop().(Block)
 	cond := s.pop().(Block)
 
 	for _, code := range cond {
-		s.eval(code)
+		s.eval(code, vm)
 	}
 
 	condResult := s.pop().(Num)
 
 	if condResult != 0 {
 		for _, code := range trueBranch {
-			s.eval(code)
+			s.eval(code, vm)
 		}
 	} else {
 		for _, code := range falseBranch {
-			s.eval(code)
+			s.eval(code, vm)
 		}
 	}
 }
-func (s *Stack) eval(code Value) {
+func (s *Stack) opDef(vm *Vm) {
+	value := vm.stack.pop()
+	vm.stack.eval(value, vm)
+	value = vm.stack.pop()
+	sym := vm.stack.pop().(Sym)
+	vm.vars[string(sym)] = value
+}
+func (s *Stack) eval(code Value, vm *Vm) {
 	if word, ok := code.(Op); ok {
+		fmt.Printf("code: %#v\n", code)
+		fmt.Printf("word: %#v\n", word)
+
 		switch word {
 		case "+":
-			s.add()
+			vm.stack.add()
 		case "-":
-			s.sub()
+			vm.stack.sub()
 		case "*":
-			s.mul()
+			vm.stack.mul()
 		case "/":
-			s.div()
+			vm.stack.div()
+		case "<":
+			vm.stack.lt()
 		case "if":
-			s.opIf()
+			vm.stack.opIf(vm)
+		case "def":
+			vm.stack.opDef(vm)
 		default:
-			panic(fmt.Sprintf("word: %v", word))
+			if val := vm.vars[string(word)]; val != nil {
+				vm.stack.push(val.(Value))
+			} else {
+				panic(fmt.Sprintf("word: %v", word))
+			}
 		}
-	} else if num, ok := code.(Num); ok {
-		s.push(num)
 	} else {
-		s.push(code.(Block))
+		vm.stack.push(code)
 	}
 }
 

@@ -17,7 +17,7 @@ pre-commit:
   commands:
     lint:
       glob: "*.go"
-      run: golangci-lint run
+      run: golangci-lint run --fix
     test:
       glob: "*.go"
       run: go test ./...
