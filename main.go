@@ -47,13 +47,15 @@ func Parse(line string) []Value {
 		if word == "" {
 			break
 		}
-		if word == "{" {
+
+		switch {
+		case word == "{":
 			value, rest := ParseBlock(words)
 			vm.stack.push(value)
 			words = rest
-		} else if strings.HasPrefix(word, "/") && len(word) > 1 {
+		case strings.HasPrefix(word, "/") && len(word) > 1:
 			vm.stack.push(Sym(word[1:]))
-		} else {
+		default:
 			parsed, err := strconv.Atoi(word)
 			if err == nil {
 				vm.stack.push(Num(parsed))
@@ -77,13 +79,15 @@ func ParseBlock(words *[]string) (Value, *[]string) {
 		if word == "" {
 			break
 		}
-		if word == "{" {
+
+		switch {
+		case word == "{":
 			value, rest := ParseBlock(words)
 			stack.push(value)
 			words = rest
-		} else if word == "}" {
+		case word == "}":
 			return Block(stack), words
-		} else {
+		default:
 			value, err := strconv.Atoi(word)
 			if err == nil {
 				stack.push(Num(value))
