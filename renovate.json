@@ -12,11 +12,11 @@
       "automerge": true
     },
     {
-      "matchPackagePatterns": [
-        "aquaproj/*",
-        "actions/*"
-      ],
-      "automerge": true
+      "automerge": true,
+      "matchPackageNames": [
+        "/aquaproj/*/",
+        "/actions/*/"
+      ]
     }
   ]
 }
