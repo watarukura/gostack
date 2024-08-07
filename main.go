@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -27,83 +29,65 @@ func (b Block) getValue() interface{} { return []Value(b) }
 type Vm struct {
 	stack Stack
 	vars  map[string]interface{}
+	block Stack
 }
 
 func main() {
-	sc := bufio.NewScanner(os.Stdin)
-	sc.Scan()
-	parsed := Parse(sc.Text())
+	var reader io.Reader
+	if len(os.Args) > 1 {
+		file, err := os.Open(os.Args[1])
+		if err != nil {
+			log.Fatalf("Error opening file: %v", err)
+		}
+		defer file.Close()
+		reader = file
+	} else {
+		reader = os.Stdin
+	}
+
+	sc := bufio.NewScanner(reader)
+	parsed := Parse(sc)
 	fmt.Printf("%#v\n", parsed)
 }
 
-func Parse(line string) []Value {
-	vm := Vm{Stack{}, make(map[string]interface{})}
-	input := strings.Split(line, " ")
-	words := &input
+func ParseWord(word string, vm *Vm) {
+	if word == "" {
+		return
+	}
 
-	for len(*words) > 0 {
-		word := splitFirst(words)
-
-		if word == "" {
-			break
-		}
-
-		switch {
-		case word == "{":
-			value, rest := ParseBlock(words)
-			vm.stack.push(value)
-			words = rest
-		case strings.HasPrefix(word, "/") && len(word) > 1:
-			vm.stack.push(Sym(word[1:]))
-		default:
-			parsed, err := strconv.Atoi(word)
-			if err == nil {
-				vm.stack.push(Num(parsed))
-			} else {
-				vm.stack.push(Op(word))
-			}
+	switch {
+	case word == "{":
+		vm.block.push(Block{})
+	case word == "}":
+		topBlock := vm.block.pop()
+		vm.stack.push(topBlock)
+	case strings.HasPrefix(word, "/") && len(word) > 1:
+		vm.stack.push(Sym(word[1:]))
+		code := vm.stack.pop()
+		vm.stack.eval(code, vm)
+	default:
+		parsed, err := strconv.Atoi(word)
+		if err == nil {
+			vm.stack.push(Num(parsed))
+		} else {
+			vm.stack.push(Op(word))
 		}
 		code := vm.stack.pop()
-		vm.stack.eval(code, &vm)
+		vm.stack.eval(code, vm)
+	}
+}
+
+func Parse(sc *bufio.Scanner) []Value {
+	vm := Vm{Stack{}, make(map[string]interface{}), []Value{}}
+
+	for sc.Scan() {
+		input := strings.Split(sc.Text(), " ")
+		for _, word := range input {
+			ParseWord(word, &vm)
+		}
 	}
 
 	return vm.stack
-}
-
-func ParseBlock(words *[]string) (Value, *[]string) {
-	stack := Stack{}
-
-	for len(*words) > 0 {
-		word := splitFirst(words)
-
-		if word == "" {
-			break
-		}
-
-		switch {
-		case word == "{":
-			value, rest := ParseBlock(words)
-			stack.push(value)
-			words = rest
-		case word == "}":
-			return Block(stack), words
-		default:
-			value, err := strconv.Atoi(word)
-			if err == nil {
-				stack.push(Num(value))
-			} else {
-				stack.push(Op(word))
-			}
-		}
-	}
-
-	return Block(stack), words
-}
-
-func splitFirst(words *[]string) string {
-	word := (*words)[0]
-	*words = (*words)[1:]
-	return word
 }
 
 func (s *Stack) add() {
@@ -164,8 +148,13 @@ func (s *Stack) opDef(vm *Vm) {
 	vm.vars[string(sym)] = value
 }
 func (s *Stack) eval(code Value, vm *Vm) {
+	if len(vm.block) > 0 {
+		topBlock := vm.block.pop().(Block)
+		topBlock = append(topBlock, code)
+		vm.block.push(topBlock)
+		return
+	}
 	if word, ok := code.(Op); ok {
-
 		switch word {
 		case "+":
 			vm.stack.add()
@@ -181,6 +170,8 @@ func (s *Stack) eval(code Value, vm *Vm) {
 			vm.stack.opIf(vm)
 		case "def":
 			vm.stack.opDef(vm)
+		case "puts":
+			vm.stack.puts(vm)
 		default:
 			if val := vm.vars[string(word)]; val != nil {
 				vm.stack.push(val.(Value))
@@ -202,4 +193,9 @@ func (s *Stack) pop() Value {
 
 func (s *Stack) push(value Value) {
 	*s = append(*s, value)
+}
+
+func (s *Stack) puts(vm *Vm) {
+	value := vm.stack.pop()
+	fmt.Println(value)
 }

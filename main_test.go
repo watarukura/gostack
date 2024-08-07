@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"github.com/stretchr/testify/assert"
+	"strings"
 	"testing"
 )
 
@@ -29,7 +31,7 @@ func TestParse(t *testing.T) {
 		{
 			name: "nested block",
 			arg:  "{ 2 { 3 4 + } * }",
-			want: []Value{Block{Num(2), Block{Num(3), Num(4), Op("+")}, Op("*")}},
+			want: []Value{Block{Num(3), Num(4), Op("+")}, Block{Num(2), Op("*")}},
 		},
 		{
 			name: "if false",
@@ -51,11 +53,25 @@ func TestParse(t *testing.T) {
 			arg:  "/x 10 def /y 20 def { x y < } { x } { y } if",
 			want: []Value{Num(10)},
 		},
+		{
+			name: "multiline",
+			arg: `
+/x 10 def
+/y 20 def
+
+{ x y < }
+{ x }
+{ y }
+if
+`,
+			want: []Value{Num(10)},
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			actual := Parse(test.arg)
+			buf := bufio.NewScanner(strings.NewReader(test.arg))
+			actual := Parse(buf)
 			assert.Equal(t, actual, test.want)
 		})
 	}
