@@ -16,15 +16,20 @@ type Num int
 type Op string
 type Block []Value
 type Sym string
+type Native NativeOp
+type NativeOp struct {
+	F func(*Vm)
+}
 type Value Valuer
 type Valuer interface {
 	getValue() interface{}
 }
 
-func (n Num) getValue() interface{}   { return int(n) }
-func (o Op) getValue() interface{}    { return string(o) }
-func (s Sym) getValue() interface{}   { return string(s) }
-func (b Block) getValue() interface{} { return []Value(b) }
+func (n Num) getValue() interface{}    { return int(n) }
+func (o Op) getValue() interface{}     { return string(o) }
+func (s Sym) getValue() interface{}    { return string(s) }
+func (b Block) getValue() interface{}  { return []Value(b) }
+func (n Native) getValue() interface{} { return NativeOp{} }
 
 type Vm struct {
 	stack Stack
@@ -64,7 +69,7 @@ func ParseWord(word string, vm *Vm) {
 	case strings.HasPrefix(word, "/") && len(word) > 1:
 		vm.stack.push(Sym(word[1:]))
 		code := vm.stack.pop()
-		vm.stack.eval(code, vm)
+		Eval(code, vm)
 	default:
 		parsed, err := strconv.Atoi(word)
 		if err == nil {
@@ -73,12 +78,24 @@ func ParseWord(word string, vm *Vm) {
 			vm.stack.push(Op(word))
 		}
 		code := vm.stack.pop()
-		vm.stack.eval(code, vm)
+		Eval(code, vm)
 	}
 }
 
 func Parse(sc *bufio.Scanner) []Value {
-	vm := Vm{Stack{}, make(map[string]interface{}), []Value{}}
+	vm := Vm{Stack{},
+		make(map[string]interface{}),
+		[]Value{}}
+	vm.vars["+"] = Native{Add}
+	vm.vars["-"] = Native{Sub}
+	vm.vars["*"] = Native{Mul}
+	vm.vars["/"] = Native{Div}
+	vm.vars["<"] = Native{Lt}
+	vm.vars["if"] = Native{OpIf}
+	vm.vars["def"] = Native{OpDef}
+	vm.vars["dup"] = Native{Dup}
+	vm.vars["exch"] = Native{Exch}
+	vm.vars["puts"] = Native{Puts}
 
 	for sc.Scan() {
 		input := strings.Split(sc.Text(), " ")
@@ -90,96 +107,106 @@ func Parse(sc *bufio.Scanner) []Value {
 	return vm.stack
 }
 
-func (s *Stack) add() {
-	rhs := s.pop().(Num)
-	lhs := s.pop().(Num)
-	s.push(lhs + rhs)
+func Add(vm *Vm) {
+	rhs := vm.stack.pop().(Num)
+	lhs := vm.stack.pop().(Num)
+	vm.stack.push(lhs + rhs)
 }
-func (s *Stack) sub() {
-	rhs := s.pop().(Num)
-	lhs := s.pop().(Num)
-	s.push(lhs - rhs)
+func Sub(vm *Vm) {
+	rhs := vm.stack.pop().(Num)
+	lhs := vm.stack.pop().(Num)
+	vm.stack.push(lhs - rhs)
 }
-func (s *Stack) mul() {
-	rhs := s.pop().(Num)
-	lhs := s.pop().(Num)
-	s.push(lhs * rhs)
+func Mul(vm *Vm) {
+	rhs := vm.stack.pop().(Num)
+	lhs := vm.stack.pop().(Num)
+	vm.stack.push(lhs * rhs)
 }
-func (s *Stack) div() {
-	rhs := s.pop().(Num)
-	lhs := s.pop().(Num)
-	s.push(lhs / rhs)
+func Div(vm *Vm) {
+	rhs := vm.stack.pop().(Num)
+	lhs := vm.stack.pop().(Num)
+	vm.stack.push(lhs / rhs)
 }
-func (s *Stack) lt() {
-	rhs := s.pop().(Num)
-	lhs := s.pop().(Num)
+func Lt(vm *Vm) {
+	rhs := vm.stack.pop().(Num)
+	lhs := vm.stack.pop().(Num)
 	if lhs < rhs {
-		s.push(Num(1))
+		vm.stack.push(Num(1))
 	} else {
-		s.push(Num(0))
+		vm.stack.push(Num(0))
 	}
 }
-func (s *Stack) opIf(vm *Vm) {
-	falseBranch := s.pop().(Block)
-	trueBranch := s.pop().(Block)
-	cond := s.pop().(Block)
+func OpIf(vm *Vm) {
+	falseBranch := vm.stack.pop().(Block)
+	trueBranch := vm.stack.pop().(Block)
+	cond := vm.stack.pop().(Block)
 
 	for _, code := range cond {
-		s.eval(code, vm)
+		Eval(code, vm)
 	}
 
-	condResult := s.pop().(Num)
+	condResult := vm.stack.pop().(Num)
 
 	if condResult != 0 {
 		for _, code := range trueBranch {
-			s.eval(code, vm)
+			Eval(code, vm)
 		}
 	} else {
 		for _, code := range falseBranch {
-			s.eval(code, vm)
+			Eval(code, vm)
 		}
 	}
 }
-func (s *Stack) opDef(vm *Vm) {
+func OpDef(vm *Vm) {
 	value := vm.stack.pop()
-	vm.stack.eval(value, vm)
+	Eval(value, vm)
 	value = vm.stack.pop()
 	sym := vm.stack.pop().(Sym)
 	vm.vars[string(sym)] = value
 }
-func (s *Stack) eval(code Value, vm *Vm) {
+
+func Dup(vm *Vm) {
+	val := vm.stack.pop()
+	vm.stack.push(val)
+	vm.stack.push(val)
+}
+func Exch(vm *Vm) {
+	last := vm.stack.pop()
+	second := vm.stack.pop()
+	vm.stack.push(last)
+	vm.stack.push(second)
+}
+func Puts(vm *Vm) {
+	value := vm.stack.pop()
+	fmt.Println(value)
+}
+
+func Eval(code Value, vm *Vm) {
 	if len(vm.block) > 0 {
 		topBlock := vm.block.pop().(Block)
 		topBlock = append(topBlock, code)
 		vm.block.push(topBlock)
 		return
 	}
-	if word, ok := code.(Op); ok {
-		switch word {
-		case "+":
-			vm.stack.add()
-		case "-":
-			vm.stack.sub()
-		case "*":
-			vm.stack.mul()
-		case "/":
-			vm.stack.div()
-		case "<":
-			vm.stack.lt()
-		case "if":
-			vm.stack.opIf(vm)
-		case "def":
-			vm.stack.opDef(vm)
-		case "puts":
-			vm.stack.puts(vm)
-		default:
-			if val := vm.vars[string(word)]; val != nil {
-				vm.stack.push(val.(Value))
-			} else {
-				panic(fmt.Sprintf("word: %v", word))
-			}
+
+	switch v := code.(type) {
+	case Op:
+		val, exists := vm.vars[string(v)]
+		if !exists {
+			log.Fatalf("%#v is not a defined operation", v)
 		}
-	} else {
+
+		switch valType := val.(type) {
+		case Block:
+			for _, c := range valType {
+				Eval(c, vm)
+			}
+		case Native:
+			valType.F(vm)
+		default:
+			vm.stack.push(val.(Value))
+		}
+	default:
 		vm.stack.push(code)
 	}
 }
@@ -193,9 +220,4 @@ func (s *Stack) pop() Value {
 
 func (s *Stack) push(value Value) {
 	*s = append(*s, value)
-}
-
-func (s *Stack) puts(vm *Vm) {
-	value := vm.stack.pop()
-	fmt.Println(value)
 }
