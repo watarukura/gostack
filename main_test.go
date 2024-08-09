@@ -26,12 +26,12 @@ func TestParse(t *testing.T) {
 		{
 			name: "valid input empty string",
 			arg:  "",
-			want: []Value{},
+			want: []Value(nil),
 		},
 		{
 			name: "nested block",
 			arg:  "{ 2 { 3 4 + } * }",
-			want: []Value{Block{Num(3), Num(4), Op("+")}, Block{Num(2), Op("*")}},
+			want: []Value{Block{Num(2), Block{Num(3), Num(4), Op("+")}, Op("*")}},
 		},
 		{
 			name: "if false",

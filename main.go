@@ -37,6 +37,24 @@ type Vm struct {
 	block Stack
 }
 
+func NewVm() *Vm {
+	vm := &Vm{
+		vars: make(map[string]interface{}),
+	}
+	vm.vars["+"] = Native{Add}
+	vm.vars["-"] = Native{Sub}
+	vm.vars["*"] = Native{Mul}
+	vm.vars["/"] = Native{Div}
+	vm.vars["<"] = Native{Lt}
+	vm.vars["if"] = Native{OpIf}
+	vm.vars["def"] = Native{OpDef}
+	vm.vars["puts"] = Native{Puts}
+	vm.vars["dup"] = Native{Dup}
+	vm.vars["exch"] = Native{Exch}
+
+	return vm
+}
+
 func main() {
 	var reader io.Reader
 	if len(os.Args) > 1 {
@@ -65,7 +83,7 @@ func ParseWord(word string, vm *Vm) {
 		vm.block.push(Block{})
 	case word == "}":
 		topBlock := vm.block.pop()
-		vm.stack.push(topBlock)
+		Eval(topBlock, vm)
 	case strings.HasPrefix(word, "/") && len(word) > 1:
 		vm.stack.push(Sym(word[1:]))
 		code := vm.stack.pop()
@@ -83,24 +101,12 @@ func ParseWord(word string, vm *Vm) {
 }
 
 func Parse(sc *bufio.Scanner) []Value {
-	vm := Vm{Stack{},
-		make(map[string]interface{}),
-		[]Value{}}
-	vm.vars["+"] = Native{Add}
-	vm.vars["-"] = Native{Sub}
-	vm.vars["*"] = Native{Mul}
-	vm.vars["/"] = Native{Div}
-	vm.vars["<"] = Native{Lt}
-	vm.vars["if"] = Native{OpIf}
-	vm.vars["def"] = Native{OpDef}
-	vm.vars["dup"] = Native{Dup}
-	vm.vars["exch"] = Native{Exch}
-	vm.vars["puts"] = Native{Puts}
+	vm := NewVm()
 
 	for sc.Scan() {
 		input := strings.Split(sc.Text(), " ")
 		for _, word := range input {
-			ParseWord(word, &vm)
+			ParseWord(word, vm)
 		}
 	}
 
