@@ -66,6 +66,31 @@ if
 `,
 			want: []Value{Num(10)},
 		},
+		{
+			name: "function",
+			arg: `
+/double { 2 * } def
+10 double
+`,
+			want: []Value{Num(20)},
+		},
+		{
+			name: "function square",
+			arg: `
+/square { dup * } def
+10 square
+`,
+			want: []Value{Num(100)},
+		},
+		{
+			name: "function vec2sqlen",
+			arg: `
+/square { dup * } def
+/vec2sqlen { square exch square exch + } def
+1 2 vec2sqlen
+`,
+			want: []Value{Num(5)},
+		},
 	}
 
 	for _, test := range tests {
