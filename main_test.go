@@ -26,12 +26,12 @@ func TestParse(t *testing.T) {
 		{
 			name: "valid input empty string",
 			arg:  "",
-			want: []Value{},
+			want: []Value(nil),
 		},
 		{
 			name: "nested block",
 			arg:  "{ 2 { 3 4 + } * }",
-			want: []Value{Block{Num(3), Num(4), Op("+")}, Block{Num(2), Op("*")}},
+			want: []Value{Block{Num(2), Block{Num(3), Num(4), Op("+")}, Op("*")}},
 		},
 		{
 			name: "if false",
@@ -91,13 +91,56 @@ if
 `,
 			want: []Value{Num(5)},
 		},
+		{
+			name: "function recursive",
+			arg: `
+/factorial { 1 factorial_int } def
+/factorial_int {
+/acc exch def
+/n exch def
+{ n 2 < }
+{ acc }
+{ n 1 -
+  acc n *
+  factorial_int }
+if
+} def
+10 factorial
+`,
+			want: []Value{Num(3628800)},
+		},
+		{
+			name: "function fibonacchi",
+			arg: `
+/fib {
+  /n exch def 
+  { n 1 < }
+  { 0 }
+  {
+    { n 2 < }
+    { 1 }
+    {
+      n 1 -
+      fib
+      n 2 -
+      fib
+      +
+    }
+    if
+  }
+  if
+} def
+10 fib
+`,
+			want: []Value{Num(55)},
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			buf := bufio.NewScanner(strings.NewReader(test.arg))
 			actual := Parse(buf)
-			assert.Equal(t, actual, test.want)
+			assert.Equal(t, test.want, actual)
 		})
 	}
 }
