@@ -33,26 +33,34 @@ func (n Native) getValue() interface{} { return NativeOp{} }
 
 type Vm struct {
 	stack Stack
-	vars  map[string]interface{}
+	vars  []map[string]Value
 	block Stack
 }
 
 func NewVm() *Vm {
-	vm := &Vm{
-		vars: make(map[string]interface{}),
-	}
-	vm.vars["+"] = Native{Add}
-	vm.vars["-"] = Native{Sub}
-	vm.vars["*"] = Native{Mul}
-	vm.vars["/"] = Native{Div}
-	vm.vars["<"] = Native{Lt}
-	vm.vars["if"] = Native{OpIf}
-	vm.vars["def"] = Native{OpDef}
-	vm.vars["puts"] = Native{Puts}
-	vm.vars["dup"] = Native{Dup}
-	vm.vars["exch"] = Native{Exch}
+	vm := &Vm{}
+	vm.vars = append(vm.vars, map[string]Value{})
+	vm.vars[0]["+"] = Native{Add}
+	vm.vars[0]["-"] = Native{Sub}
+	vm.vars[0]["*"] = Native{Mul}
+	vm.vars[0]["/"] = Native{Div}
+	vm.vars[0]["<"] = Native{Lt}
+	vm.vars[0]["if"] = Native{OpIf}
+	vm.vars[0]["def"] = Native{OpDef}
+	vm.vars[0]["puts"] = Native{Puts}
+	vm.vars[0]["dup"] = Native{Dup}
+	vm.vars[0]["exch"] = Native{Exch}
 
 	return vm
+}
+
+func (vm *Vm) findVar(name string) Value {
+	for i := len(vm.vars) - 1; i >= 0; i-- {
+		if find, ok := vm.vars[i][name]; ok {
+			return find
+		}
+	}
+	return nil
 }
 
 func main() {
@@ -83,7 +91,7 @@ func ParseWord(word string, vm *Vm) {
 		vm.block.push(Block{})
 	case word == "}":
 		topBlock := vm.block.pop()
-		Eval(topBlock, vm)
+		Eval(topBlock.(Block), vm)
 	case strings.HasPrefix(word, "/") && len(word) > 1:
 		vm.stack.push(Sym(word[1:]))
 		code := vm.stack.pop()
@@ -168,7 +176,7 @@ func OpDef(vm *Vm) {
 	Eval(value, vm)
 	value = vm.stack.pop()
 	sym := vm.stack.pop().(Sym)
-	vm.vars[string(sym)] = value
+	vm.vars[len(vm.vars)-1][string(sym)] = value
 }
 
 func Dup(vm *Vm) {
@@ -197,20 +205,22 @@ func Eval(code Value, vm *Vm) {
 
 	switch v := code.(type) {
 	case Op:
-		val, exists := vm.vars[string(v)]
-		if !exists {
+		val := vm.findVar(string(v))
+		if val == nil {
 			log.Fatalf("%#v is not a defined operation", v)
 		}
 
 		switch valType := val.(type) {
 		case Block:
+			vm.vars = append(vm.vars, map[string]Value{})
 			for _, c := range valType {
 				Eval(c, vm)
 			}
+			vm.vars = vm.vars[:len(vm.vars)-1]
 		case Native:
 			valType.F(vm)
 		default:
-			vm.stack.push(val.(Value))
+			vm.stack.push(val)
 		}
 	default:
 		vm.stack.push(code)
